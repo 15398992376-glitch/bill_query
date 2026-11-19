@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ app_name }} · API 文档</title>
+  <style>
+    body {
+      margin: 0; padding: 28px 32px 60px; background: #f4f6fb; color: #22293a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      font-size: 13px; line-height: 1.6;
+    }
+    .sheet { max-width: 1000px; margin: 0 auto; background: #fff; padding: 28px 32px 36px; border-radius: 10px; box-shadow: 0 2px 16px rgba(30,50,90,.08); }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .meta { color: #7c869c; font-size: 12px; margin-bottom: 18px; }
+    a.back { color: #2b5fed; text-decoration: none; font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid #e3e8f2; text-align: left; vertical-align: top; }
+    th { background: #f8fafe; color: #7c869c; font-weight: 600; }
+    code { background: #f1f4fb; border-radius: 4px; padding: 1px 5px; font-size: 11px; }
+    .method { display: inline-block; min-width: 52px; text-align: center; border-radius: 4px; padding: 1px 6px; font-size: 11px; font-weight: 700; }
+    .GET { background: #e7f7f0; color: #0c8f6a; }
+    .POST { background: #eef2ff; color: #2b5fed; }
+    .DELETE { background: #feeceb; color: #d63b30; }
+    .note { margin-top: 18px; padding: 12px 14px; background: #fbfcff; border-left: 3px solid #2b5fed; border-radius: 6px; font-size: 12px; color: #55607a; }
+  </style>
+</head>
+<body>
+<div class="sheet">
+  <a class="back" href="/">← 返回主页</a>
+  <h1>{{ app_name }} · API 文档</h1>
+  <div class="meta">共 {{ rules|length }} 个接口 · 所有接口返回 JSON：<code>{"success": true, "data": ...}</code></div>
+
+  <table>
+    <thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead>
+    <tbody>
+    {% for r in rules %}
+      <tr>
+        <td>
+          {% for m in r.methods %}<span class="method {{ m }}">{{ m }}</span> {% endfor %}
+        </td>
+        <td><code>{{ r.rule }}</code></td>
+        <td>{{ r.endpoint }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="note">
+    <b>通用筛选参数</b>：<code>start_date</code>、<code>end_date</code>、<code>direction</code>、<code>category</code>、
+    <code>keyword</code>、<code>min_amount</code>、<code>max_amount</code>、<code>weekday</code>（1-7）、
+    <code>exclude_transfer=1</code>、<code>exclude_ignored=1</code>。<br>
+    <b>标注接口</b>：<code>POST /api/bills/&lt;id&gt;/annotations</code> 请求体 <code>{"key","tag","note","ignored"}</code>，
+    <code>DELETE</code> 请求体 <code>{"key"}</code>。<br>
+    <b>备份</b>：<code>GET /api/backup</code> 下载 ZIP；<code>POST /api/restore</code> 上传 ZIP 恢复。
+  </div>
+</div>
+</body>
+</html>

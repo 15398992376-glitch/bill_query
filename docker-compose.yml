@@ -1,0 +1,13 @@
+services:
+  bill-query:
+    build: .
+    image: bill-query-agent:1.0.0
+    container_name: bill-query-agent
+    ports:
+      - "5105:5105"
+    volumes:
+      - ./data:/app/data
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - TZ=Asia/Shanghai
+    restart: unless-stopped

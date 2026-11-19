@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ app_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">📊 {{ app_name }}</div>
+  <div class="topbar-right">
+    <div class="global-search">
+      <input type="text" id="globalSearch" placeholder="跨账单搜索对方 / 商品 / 单号">
+      <div id="searchPanel" class="search-panel"></div>
+    </div>
+    <a class="top-link" id="linkReport" target="_blank">分析报告</a>
+    <a class="top-link" href="/apidocs" target="_blank">API</a>
+    <button id="btnBackup" class="top-btn">备份</button>
+    <label class="top-btn" for="restoreInput">恢复</label>
+    <input type="file" id="restoreInput" accept=".zip" hidden>
+    <div class="status" id="status">未加载账单</div>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <section class="panel">
+      <h3>1. 导入账单</h3>
+      <p class="hint">支持微信支付、支付宝账单、银行流水（CSV/XLSX），可多选或上传 ZIP 压缩包</p>
+      <input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.xlsm,.zip" multiple>
+      <div class="field">
+        <label>ZIP 解压密码（可选）</label>
+        <input type="password" id="zipPassword" placeholder="加密压缩包才需要">
+      </div>
+      <div class="actions">
+        <button id="btnUpload" class="primary">上传并解析</button>
+        <button id="btnPreview" class="ghost">仅预览</button>
+      </div>
+      <div id="uploadMsg" class="msg"></div>
+    </section>
+
+    <section class="panel">
+      <h3>2. 历史账单</h3>
+      <div id="billList" class="bill-list"></div>
+    </section>
+
+    <section class="panel">
+      <h3>3. 筛选条件</h3>
+      <div class="quick-range">
+        <button class="chip" data-range="today">今天</button>
+        <button class="chip" data-range="week">本周</button>
+        <button class="chip" data-range="month">本月</button>
+        <button class="chip" data-range="lastmonth">上月</button>
+        <button class="chip" data-range="year">今年</button>
+        <button class="chip" data-range="days180">近180天</button>
+      </div>
+      <div class="field">
+        <label>开始日期</label>
+        <input type="date" id="startDate">
+      </div>
+      <div class="field">
+        <label>结束日期</label>
+        <input type="date" id="endDate">
+      </div>
+      <div class="field">
+        <label>收/支</label>
+        <select id="direction">
+          <option value="">全部</option>
+          <option value="支出">支出</option>
+          <option value="收入">收入</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>分类</label>
+        <select id="category"><option value="">全部</option></select>
+      </div>
+      <div class="field">
+        <label>关键词</label>
+        <input type="text" id="keyword" placeholder="对方/商品/单号">
+      </div>
+      <div class="field">
+        <label>金额区间</label>
+        <div class="row">
+          <input type="number" id="minAmount" placeholder="最低">
+          <input type="number" id="maxAmount" placeholder="最高">
+        </div>
+      </div>
+      <div class="field">
+        <label>星期</label>
+        <select id="weekday">
+          <option value="">全部</option>
+          <option value="1">周一</option>
+          <option value="2">周二</option>
+          <option value="3">周三</option>
+          <option value="4">周四</option>
+          <option value="5">周五</option>
+          <option value="6">周六</option>
+          <option value="7">周日</option>
+        </select>
+      </div>
+      <label class="check">
+        <input type="checkbox" id="excludeTransfer">
+        <span>剔除转账 / 红包 / 提现 / 退款</span>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="excludeIgnored">
+        <span>排除已忽略的交易</span>
+      </label>
+      <div class="actions">
+        <button id="btnApply" class="primary">应用筛选</button>
+        <button id="btnReset" class="ghost">重置</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h3>4. 数据管理</h3>
+      <div class="actions">
+        <button id="btnRebuildIndex" class="ghost">重建搜索索引</button>
+      </div>
+      <div id="indexMsg" class="msg"></div>
+    </section>
+
+    <section class="panel">
+      <h3>5. 预算设置</h3>
+      <div class="field">
+        <label>本月支出预算（元）</label>
+        <input type="number" id="budgetMonthly" placeholder="例如 3000">
+      </div>
+      <div class="field">
+        <label>分类预算（可选）</label>
+        <div class="row">
+          <select id="budgetCategory"><option value="">选择分类</option></select>
+          <input type="number" id="budgetAmount" placeholder="金额">
+        </div>
+      </div>
+      <div class="actions">
+        <button id="btnBudgetSave" class="primary">保存预算</button>
+        <button id="btnBudgetClear" class="ghost">清空分类</button>
+      </div>
+      <div id="budgetMsg" class="msg"></div>
+    </section>
+
+    <section class="panel">
+      <h3>6. 导出</h3>
+      <div class="actions">
+        <button id="btnExportXlsx" class="primary">导出 Excel 报告</button>
+        <button id="btnExportCsv" class="ghost">导出 CSV 明细</button>
+      </div>
+    </section>
+  </aside>
+
+  <main class="content">
+    <div class="cards" id="cards"></div>
+
+    <section class="panel year-panel">
+      <div class="panel-head">
+        <h3>📆 年度概览</h3>
+        <div class="panel-tools">
+          <span class="hint" id="yearHint"></span>
+          <select id="yearSelect" class="mini-select"></select>
+        </div>
+      </div>
+      <div class="year-kpis" id="yearKpis"></div>
+      <div class="month-grid" id="yearMonths"></div>
+    </section>
+
+    <section class="panel compare-panel">
+      <div class="panel-head">
+        <h3>📈 月度环比对比</h3>
+        <span class="hint" id="compareHint"></span>
+      </div>
+      <div class="compare-body">
+        <div class="compare-stats" id="compareStats"></div>
+        <div class="compare-chart"><canvas id="chartCompare"></canvas></div>
+      </div>
+    </section>
+
+    <section class="chart-grid">
+      <div class="chart-box">
+        <div class="chart-head">月度收支趋势（点击月份可下钻）</div>
+        <canvas id="chartTrend"></canvas>
+      </div>
+      <div class="chart-box">
+        <div class="chart-head">支出分类占比（点击分类可筛选）</div>
+        <canvas id="chartCategory"></canvas>
+      </div>
+      <div class="chart-box">
+        <div class="chart-head">交易对方 TOP10（点击可筛选）</div>
+        <canvas id="chartCounterparty"></canvas>
+      </div>
+      <div class="chart-box">
+        <div class="chart-head">星期消费分布（点击可筛选）</div>
+        <canvas id="chartWeekday"></canvas>
+      </div>
+      <div class="chart-box wide">
+        <div class="chart-head">时段消费分布</div>
+        <canvas id="chartHour"></canvas>
+      </div>
+      <div class="chart-box">
+        <div class="chart-head">分类月度趋势（堆叠）</div>
+        <canvas id="chartCatTrend"></canvas>
+      </div>
+      <div class="chart-box">
+        <div class="chart-head">累计支出曲线</div>
+        <canvas id="chartCumulative"></canvas>
+      </div>
+    </section>
+
+    <section class="panel heatmap-panel">
+      <div class="panel-head">
+        <h3>🔥 7×24 消费热力图</h3>
+        <div class="panel-tools">
+          <span class="hint" id="heatmapHint"></span>
+          <select id="heatmapDirection" class="mini-select">
+            <option value="支出">支出</option>
+            <option value="收入">收入</option>
+          </select>
+        </div>
+      </div>
+      <div class="heatmap-legend">
+        <span class="legend-label">少</span>
+        <span class="legend-cell l0"></span>
+        <span class="legend-cell l1"></span>
+        <span class="legend-cell l2"></span>
+        <span class="legend-cell l3"></span>
+        <span class="legend-cell l4"></span>
+        <span class="legend-label">多</span>
+      </div>
+      <div class="heatmap-wrap">
+        <div class="heatmap-hours" id="heatmapHours"></div>
+        <div class="heatmap-grid" id="heatmapGrid"></div>
+      </div>
+    </section>
+
+    <section class="panel insights-panel">
+      <div class="panel-head">
+        <h3>💡 消费洞察</h3>
+        <span class="hint">基于当前筛选条件自动分析</span>
+      </div>
+      <div id="insightList" class="insight-list"></div>
+    </section>
+
+    <section class="panel nl-panel">
+      <div class="panel-head">
+        <h3>🗣️ 自然语言查询</h3>
+        <span class="hint">试试「本月支出大于100」「上个月餐饮」「美团一共花了多少」</span>
+      </div>
+      <div class="nl-row">
+        <input type="text" id="nlInput" placeholder="用一句话描述你想查的内容，回车执行">
+        <button id="btnNlQuery" class="primary">查询</button>
+      </div>
+      <div id="nlResult" class="nl-result"></div>
+    </section>
+
+    <section class="panel budget-panel">
+      <div class="panel-head">
+        <h3>🎯 预算执行</h3>
+        <span class="hint" id="budgetMonthHint"></span>
+      </div>
+      <div class="budget-body">
+        <div class="ring-wrap">
+          <div class="ring" id="budgetRing"><span id="budgetRingText">--</span></div>
+          <div class="ring-caption" id="budgetRingCaption">未设置预算</div>
+        </div>
+        <div class="budget-detail" id="budgetDetail"></div>
+      </div>
+    </section>
+
+    <section class="panel calendar-panel">
+      <div class="calendar-head">
+        <h3>📅 每日消费日历</h3>
+        <div class="calendar-controls">
+          <button id="calPrev" class="ghost cal-btn">◀ 上月</button>
+          <span id="calTitle" class="cal-title">--</span>
+          <button id="calNext" class="ghost cal-btn">下月 ▶</button>
+          <select id="calDirection" class="cal-dir">
+            <option value="支出">支出</option>
+            <option value="收入">收入</option>
+          </select>
+        </div>
+      </div>
+      <div id="calSummary" class="cal-summary"></div>
+      <div class="calendar-legend">
+        <span class="legend-label">少</span>
+        <span class="legend-cell l0"></span>
+        <span class="legend-cell l1"></span>
+        <span class="legend-cell l2"></span>
+        <span class="legend-cell l3"></span>
+        <span class="legend-cell l4"></span>
+        <span class="legend-label">多</span>
+      </div>
+      <div class="calendar-weekdays">
+        <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+      </div>
+      <div id="calendarGrid" class="calendar-grid"></div>
+    </section>
+
+    <section class="panel table-panel">
+      <div class="table-head">
+        <h3>交易明细</h3>
+        <div class="pager">
+          <button id="btnPrev" class="ghost">上一页</button>
+          <span id="pageInfo">1 / 1</span>
+          <button id="btnNext" class="ghost">下一页</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="txTable">
+          <thead>
+          <tr>
+            <th data-sort="trade_time">时间</th>
+            <th data-sort="direction">收/支</th>
+            <th data-sort="amount">金额</th>
+            <th>分类</th>
+            <th>交易对方</th>
+            <th>商品说明</th>
+            <th>支付方式</th>
+            <th>状态</th>
+            <th>标注</th>
+          </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel about-panel">
+      <details>
+        <summary><h3>📖 数据口径说明</h3></summary>
+        <div class="about-body">
+          <dl>
+            <dt>支出分类占比</dt>
+            <dd>某一分类金额合计 ÷ 全部支出合计 × 100%，按<b>金额</b>计算，不按笔数。</dd>
+
+            <dt>星期 / 时段分布</dt>
+            <dd>按交易发生时间的星期（周一=1）与小时分组求和，统计的是<b>金额</b>，不是百分比；不区分是否工作日。</dd>
+
+            <dt>交易对方 TOP</dt>
+            <dd>同一对方在筛选区间内的<b>累计金额</b>，不是单笔金额。例如美团 ¥4093 可能是 84 笔 × 均 48.73 的合计。</dd>
+
+            <dt>筛选口径</dt>
+            <dd>左侧所有筛选条件（日期、收支、分类、关键词、金额、星期、剔除转账）会同时作用于卡片、图表、日历、明细与导出，保证口径一致。</dd>
+
+            <dt>剔除转账</dt>
+            <dd>勾选后排除转账、红包、提现、充值、还款、退款、零钱通、余额宝、内部划转、群收款等资金搬家类记录。</dd>
+
+            <dt>月度环比</dt>
+            <dd>取当前筛选区间内最近两个自然月，比较金额、笔数及各分类差额；上月为 0 时百分比记为 0，不做除零。</dd>
+
+            <dt>本月支出预测</dt>
+            <dd>按已过天数计算日均支出，再乘以当月自然日天数，得到整月预测值，仅作参考。</dd>
+
+            <dt>储蓄率</dt>
+            <dd>(收入合计 − 支出合计) ÷ 收入合计 × 100%，收入为 0 时不计算。</dd>
+
+            <dt>预算</dt>
+            <dd>预算保存在服务端 <code>data/budgets.json</code>，按账单 ID 独立存储；进度按<b>最近一个有支出数据的月份</b>计算。</dd>
+
+            <dt>自然语言查询</dt>
+            <dd>规则匹配（非大模型），支持本月/上月/今年/去年、收入/支出、分类名、商户名、"大于/小于 N" 等表达。</dd>
+          </dl>
+        </div>
+      </details>
+    </section>
+  </main>
+</div>
+
+<div id="drawerMask" class="drawer-mask"></div>
+<aside id="merchantDrawer" class="drawer">
+  <div class="drawer-head">
+    <h3 id="merchantTitle">商户画像</h3>
+    <button id="merchantClose" class="ghost cal-btn">关闭</button>
+  </div>
+  <div id="merchantBody" class="drawer-body"></div>
+  <div class="drawer-foot">
+    <button id="merchantFilter" class="primary">按此对方筛选</button>
+  </div>
+</aside>
+
+<div id="markDialog" class="dialog">
+  <h3>标注交易</h3>
+  <div id="markMeta" class="hint"></div>
+  <div class="field">
+    <label>标签</label>
+    <input type="text" id="markTag" placeholder="如：报销 / 必要支出 / 待核对">
+  </div>
+  <div class="field">
+    <label>备注</label>
+    <input type="text" id="markNote" placeholder="可选">
+  </div>
+  <label class="check">
+    <input type="checkbox" id="markIgnored">
+    <span>忽略此笔（统计时排除）</span>
+  </label>
+  <div class="actions">
+    <button id="markSave" class="primary">保存</button>
+    <button id="markDelete" class="ghost">清除</button>
+    <button id="markCancel" class="ghost">取消</button>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

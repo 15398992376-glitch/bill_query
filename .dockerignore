@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.git/
+.gitignore
+data/upload/*
+data/bills/*
+data/export/*
+data/logs/*
+data/bills.db
+data/annotations.json
+data/budgets.json
+data/ui_check.png
+tests/_ut.log
+tests/_smoke_new.py
+tests/_smoke_extra.py

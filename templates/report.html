@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ dataset.source_file or bill_id }} · 分析报告</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 28px 32px 60px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: #22293a; background: #f4f6fb; font-size: 13px; line-height: 1.6;
+    }
+    .sheet { max-width: 980px; margin: 0 auto; background: #fff; padding: 32px 36px 40px; border-radius: 10px; box-shadow: 0 2px 16px rgba(30,50,90,.08); }
+    h1 { font-size: 22px; margin: 0 0 6px; }
+    h2 { font-size: 15px; margin: 28px 0 10px; padding-left: 9px; border-left: 3px solid #2b5fed; }
+    .meta { color: #7c869c; font-size: 12px; }
+    .toolbar { max-width: 980px; margin: 0 auto 14px; display: flex; gap: 10px; justify-content: flex-end; }
+    .toolbar button, .toolbar a {
+      border: 1px solid #2b5fed; background: #2b5fed; color: #fff; border-radius: 6px;
+      padding: 7px 14px; font-size: 13px; cursor: pointer; text-decoration: none;
+    }
+    .toolbar a.ghost { background: #fff; color: #2b5fed; }
+    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
+    .kpi { border: 1px solid #e3e8f2; border-radius: 8px; padding: 12px 14px; }
+    .kpi .label { font-size: 11px; color: #7c869c; }
+    .kpi .value { font-size: 19px; font-weight: 700; margin-top: 3px; }
+    .red { color: #f2564b; } .green { color: #12b886; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+    th, td { padding: 7px 9px; border-bottom: 1px solid #e3e8f2; text-align: left; }
+    th { background: #f8fafe; color: #7c869c; font-weight: 600; }
+    .bars { display: flex; flex-direction: column; gap: 7px; margin-top: 8px; }
+    .bar-row { display: grid; grid-template-columns: 110px 1fr 90px; gap: 10px; align-items: center; font-size: 12px; }
+    .bar-track { height: 9px; background: #eef1f6; border-radius: 5px; overflow: hidden; }
+    .bar-fill { height: 100%; background: #2b5fed; border-radius: 5px; }
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .insight { border-left: 3px solid #2b5fed; background: #fbfcff; border-radius: 6px; padding: 8px 12px; margin-bottom: 8px; }
+    .insight.warn { border-left-color: #f2564b; background: #fffafa; }
+    .insight.good { border-left-color: #12b886; background: #f9fdfb; }
+    .insight .t { font-weight: 700; }
+    .insight .d { color: #7c869c; font-size: 12px; }
+    .tag { display: inline-block; padding: 1px 7px; border-radius: 999px; background: #eef2ff; color: #2b5fed; font-size: 11px; margin-right: 6px; }
+    .month-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; margin-top: 8px; }
+    .month-cell { text-align: center; border-radius: 5px; padding: 6px 2px; font-size: 10px; background: #eef1f6; }
+    .month-cell .m { font-weight: 700; font-size: 11px; }
+    footer { margin-top: 30px; color: #7c869c; font-size: 11px; border-top: 1px solid #e3e8f2; padding-top: 10px; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .sheet { box-shadow: none; border-radius: 0; padding: 0; max-width: none; }
+      .toolbar { display: none; }
+      h2 { break-after: avoid; }
+      table { break-inside: auto; }
+      tr { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+<div class="toolbar">
+  <a class="ghost" href="/">← 返回主页</a>
+  <button onclick="window.print()">打印 / 另存为 PDF</button>
+</div>
+
+<div class="sheet">
+  <h1>账单分析报告</h1>
+  <div class="meta">
+    账单：{{ dataset.source_file or bill_id }} ·
+    渠道：{{ dataset.channel or "未知" }} ·
+    记录数：{{ dataset.df|length }} ·
+    时间范围：{{ report.overview.start_date }} ~ {{ report.overview.end_date }} ·
+    生成时间：{{ generated_at }}
+  </div>
+
+  {% set o = report.overview %}
+  <div class="kpis">
+    <div class="kpi"><div class="label">收入合计</div><div class="value green">¥{{ "%.2f"|format(o.income_total) }}</div></div>
+    <div class="kpi"><div class="label">支出合计</div><div class="value red">¥{{ "%.2f"|format(o.expense_total) }}</div></div>
+    <div class="kpi"><div class="label">净收支</div><div class="value {{ 'green' if o.net_total >= 0 else 'red' }}">¥{{ "%.2f"|format(o.net_total) }}</div></div>
+    <div class="kpi"><div class="label">储蓄率</div><div class="value">{{ "%.1f"|format(o.savings_rate) }}%</div></div>
+    <div class="kpi"><div class="label">日均支出</div><div class="value">¥{{ "%.2f"|format(o.avg_daily_expense) }}</div></div>
+    <div class="kpi"><div class="label">笔均支出</div><div class="value">¥{{ "%.2f"|format(o.avg_ticket) }}</div></div>
+    <div class="kpi"><div class="label">最大单笔</div><div class="value">¥{{ "%.2f"|format(o.max_expense) }}</div></div>
+    <div class="kpi"><div class="label">本月预测支出</div><div class="value">¥{{ "%.2f"|format(o.forecast_month_expense) }}</div></div>
+  </div>
+
+  <h2>年度概览（{{ report.year_report.year }} 年）</h2>
+  {% set y = report.year_report %}
+  <div class="meta">
+    支出 ¥{{ "%.2f"|format(y.expense_total) }} · 收入 ¥{{ "%.2f"|format(y.income_total) }} ·
+    活跃 {{ y.active_days }} 天 · 月均支出 ¥{{ "%.2f"|format(y.avg_month_expense) }}
+  </div>
+  <div class="month-grid">
+    {% set max_expense_month = (y.months | map(attribute='expense') | max) if y.months else 0 %}
+    {% for m in y.months %}
+      {% set level = (m.expense / max_expense_month * 4) | round(0, 'floor') | int if max_expense_month else 0 %}
+      <div class="month-cell" style="background: {{ ['#eef1f6','#c7d8ff','#8fb4ff','#5b8df5','#2b5fed'][level] }}; color: {{ '#fff' if level >= 2 else '#22293a' }};">
+        <div class="m">{{ m.month[1:] }}月</div>
+        <div>{{ "%.0f"|format(m.expense) }}</div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="cols">
+    <div>
+      <h2>支出分类 TOP</h2>
+      <div class="bars">
+        {% for c in y.top_categories %}
+          <div class="bar-row">
+            <span>{{ c.category }}</span>
+            <span class="bar-track"><i class="bar-fill" style="width: {{ c.ratio }}%"></i></span>
+            <span>¥{{ "%.0f"|format(c.amount) }}（{{ "%.1f"|format(c.ratio) }}%）</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div>
+      <h2>交易对方 TOP</h2>
+      <table>
+        <thead><tr><th>对方</th><th>笔数</th><th>累计金额</th></tr></thead>
+        <tbody>
+        {% for m in y.top_merchants %}
+          <tr><td>{{ m.counterparty }}</td><td>{{ m.count }}</td><td>¥{{ "%.2f"|format(m.amount) }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2>消费洞察</h2>
+  {% for i in report.insights %}
+    <div class="insight {{ i.level }}"><span class="t">{{ i.title }}</span> <span class="tag">{{ i.type }}</span><div class="d">{{ i.detail }}</div></div>
+  {% else %}
+    <div class="meta">暂无洞察</div>
+  {% endfor %}
+
+  <h2>月度环比</h2>
+  {% set comp = report.comparison %}
+  <div class="meta">
+    {{ comp.previous.month or "-" }} ¥{{ "%.2f"|format(comp.previous.amount or 0) }}
+    → {{ comp.current.month or "-" }} ¥{{ "%.2f"|format(comp.current.amount or 0) }}
+    （{{ "%+.1f"|format(comp.delta.amount_pct or 0) }}%）
+  </div>
+  <table>
+    <thead><tr><th>分类</th><th>上月</th><th>本月</th><th>差额</th><th>变化</th></tr></thead>
+    <tbody>
+    {% for c in comp.categories %}
+      <tr>
+        <td>{{ c.category }}</td>
+        <td>¥{{ "%.2f"|format(c.previous) }}</td>
+        <td>¥{{ "%.2f"|format(c.current) }}</td>
+        <td class="{{ 'red' if c.delta > 0 else 'green' }}">{{ "%+.2f"|format(c.delta) }}</td>
+        <td>{{ "%+.1f"|format(c.delta_pct) }}%</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>月度趋势</h2>
+  <table>
+    <thead><tr><th>月份</th><th>收入</th><th>支出</th><th>净额</th><th>笔数</th></tr></thead>
+    <tbody>
+    {% for r in report.monthly_trend %}
+      <tr>
+        <td>{{ r.period }}</td>
+        <td class="green">¥{{ "%.2f"|format(r.income) }}</td>
+        <td class="red">¥{{ "%.2f"|format(r.expense) }}</td>
+        <td>¥{{ "%.2f"|format(r.net) }}</td>
+        <td>{{ r.count }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>支付方式分布</h2>
+  <table>
+    <thead><tr><th>支付方式</th><th>笔数</th><th>金额</th></tr></thead>
+    <tbody>
+    {% for p in y.pay_methods %}
+      <tr><td>{{ p.pay_method or "(未填写)" }}</td><td>{{ p.count }}</td><td>¥{{ "%.2f"|format(p.amount) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <footer>
+    本报告由「{{ app_name }}」自动生成 · 数据来源：{{ dataset.source_file or bill_id }} · 分类占比按金额计算，星期/时段统计为金额求和
+  </footer>
+</div>
+</body>
+</html>
